@@ -2,6 +2,8 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-branch--watch-blue?logo=github)](https://github.com/marketplace/actions/branch-watch)
 [![Release](https://img.shields.io/github/v/release/nuri-yoo/branch-watch)](https://github.com/nuri-yoo/branch-watch/releases)
+[![PyPI](https://img.shields.io/pypi/v/branch-watch)](https://pypi.org/project/branch-watch/)
+[![npm](https://img.shields.io/npm/v/branch-watch)](https://www.npmjs.com/package/branch-watch)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Track branch and fork sync status across your GitHub repositories from the command line.
@@ -40,20 +42,6 @@ $ bw branches owner/repo
 - **Works with any GitHub account** — personal accounts, organization forks, company repositories
 - **Single binary** — no runtime dependencies
 
-## GitHub API Usage
-
-`branch-watch` integrates with the following GitHub REST API endpoints:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /user/repos?type=fork` | List authenticated user's forked repositories |
-| `GET /repos/{owner}/{repo}` | Fetch repository metadata including upstream parent info |
-| `GET /repos/{owner}/{repo}/branches` | List all branches in a repository |
-| `GET /repos/{owner}/{repo}/compare/{base}...{head}` | Compare two refs to get ahead/behind commit counts |
-| `GET /repos/{owner}/{repo}/pulls?state=open` | List open pull requests |
-
-Authentication is handled via a [GitHub Personal Access Token (PAT)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `repo` scope.
-
 ## Installation
 
 ### Homebrew (macOS / Linux)
@@ -61,6 +49,18 @@ Authentication is handled via a [GitHub Personal Access Token (PAT)](https://doc
 ```sh
 brew tap nuri-yoo/tap
 brew install branch-watch
+```
+
+### pip
+
+```sh
+pip install branch-watch
+```
+
+### npm
+
+```sh
+npm install -g branch-watch
 ```
 
 ### Pre-built binaries
@@ -90,17 +90,6 @@ cargo install --path .
 ```
 
 The binary is installed as `bw`.
-
-## Use in GitHub Actions
-
-Add branch-watch to your CI workflow to surface stale branches automatically:
-
-```yaml
-- uses: nuri-yoo/branch-watch@v1
-  with:
-    command: branches
-    repo: ${{ github.repository }}
-```
 
 ## Authentication
 
@@ -152,6 +141,31 @@ bw prs owner/repo
 ```sh
 bw auth ghp_xxxxxxxxxxxxxxxxxxxx
 ```
+
+## Use in GitHub Actions
+
+Add branch-watch to your CI workflow to surface stale branches automatically:
+
+```yaml
+- uses: nuri-yoo/branch-watch@v1
+  with:
+    command: branches
+    repo: ${{ github.repository }}
+```
+
+## GitHub API Usage
+
+`branch-watch` integrates with the following GitHub REST API endpoints:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /user/repos?type=fork` | List authenticated user's forked repositories |
+| `GET /repos/{owner}/{repo}` | Fetch repository metadata including upstream parent info |
+| `GET /repos/{owner}/{repo}/branches` | List all branches in a repository |
+| `GET /repos/{owner}/{repo}/compare/{base}...{head}` | Compare two refs to get ahead/behind commit counts |
+| `GET /repos/{owner}/{repo}/pulls?state=open` | List open pull requests |
+
+Authentication is handled via a [GitHub Personal Access Token (PAT)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `repo` scope.
 
 ## Use cases
 
