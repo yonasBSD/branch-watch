@@ -24,6 +24,17 @@ branch-watch solves all three with a single command.
 
 ---
 
+## What's New in v0.2.0
+
+- **`--behind-only` filter** — show only branches or forks that are actually behind; skip the noise
+- **`--json` output** — pipe results into `jq`, scripts, or CI steps
+- **gh CLI token auto-detection** — if you already have `gh` installed and authenticated, `bw` just works with no extra setup
+- **PR age display** — each PR now shows its open date so you can spot staleness at a glance
+- **Sorted by staleness** — branches and forks are ranked by how many commits behind they are, worst first
+- **Clearer auth errors** — expired token, wrong scope, and missing token all give actionable error messages
+
+---
+
 ## Demo
 
 ### Check if all your forks are behind upstream
@@ -38,6 +49,18 @@ Forked repositories
   alice/serde         serde-rs/serde        ✓ in sync
   acme/axum           tokio-rs/axum         ↓ 15 behind  ↑ 8 ahead
   acme/reqwest        seanmonstar/reqwest   ↑ 3 ahead
+```
+
+Filter to only stale forks:
+
+```
+$ bw forks --behind-only
+
+Forked repositories
+
+  alice/rust          rust-lang/rust   ↓ 42 behind
+  acme/axum           tokio-rs/axum   ↓ 15 behind  ↑ 8 ahead
+  alice/tokio         tokio-rs/tokio  ↓ 7 behind   ↑ 2 ahead
 ```
 
 ### Check branch sync status vs. main
@@ -60,10 +83,22 @@ $ bw prs owner/repo
 → owner/repo — 2 open PRs
 
   #101  Add dark mode support
-         feat/dark-mode → main  by @alice · 2 reviewers
+         feat/dark-mode → main  by @alice · 2 reviewers · opened 2026-03-01
 
   #98   Fix login redirect [draft]
-         fix/login → main  by @bob
+         fix/login → main  by @bob · opened 2026-04-10
+```
+
+### Machine-readable JSON output
+
+```
+$ bw branches owner/repo --json | jq '.[] | select(.behind > 10)'
+{
+  "branch": "feat/dashboard",
+  "base": "main",
+  "behind": 14,
+  "ahead": 0
+}
 ```
 
 ---
@@ -72,13 +107,16 @@ $ bw prs owner/repo
 
 | Feature | Description |
 |---------|-------------|
-| Fork sync status | Shows behind/ahead commit count for all your forked repos vs. upstream |
+| Fork sync status | Shows behind/ahead commit count for all your forked repos vs. upstream, sorted by staleness |
 | Branch status | Shows every branch vs. the repo's default branch |
-| PR overview | Lists open PRs with author, branches, draft status, and reviewer count |
+| PR overview | Lists open PRs with author, branches, draft status, reviewer count, and open date |
+| `--behind-only` filter | Suppress up-to-date entries; show only what needs attention |
+| `--json` output | Structured JSON for scripting, CI, and `jq` pipelines |
+| gh CLI auto-detection | No `bw auth` needed if you already use the GitHub CLI |
 | GitHub Actions support | Use as a CI step to fail builds on stale branches |
 | Multi-platform | macOS (Intel + Apple Silicon), Linux (x86_64 + ARM64) |
 | Single binary | No runtime, no dependencies — written in Rust |
-| Token-based auth | Works with GitHub PAT via env var or config file |
+| Token-based auth | Works with GitHub PAT via env var, config file, or gh CLI |
 
 ---
 
@@ -136,19 +174,30 @@ branch-watch uses the GitHub REST API and requires a Personal Access Token (PAT)
 
 **Generate a token**: [github.com/settings/tokens](https://github.com/settings/tokens) → Generate new token → select `repo`
 
-**Option 1 — Save to config file (persistent):**
+**Option 1 — gh CLI auto-detection (zero setup):**
+
+If you already have the [GitHub CLI](https://cli.github.com) installed and logged in, `bw` picks up your token automatically. No extra configuration needed.
+
+```sh
+gh auth login   # one-time setup if not already done
+bw forks        # works immediately
+```
+
+**Option 2 — Save to config file (persistent):**
 
 ```sh
 bw auth ghp_xxxxxxxxxxxxxxxxxxxx
 # Saved to ~/.branch-watch.toml
 ```
 
-**Option 2 — Environment variable:**
+**Option 3 — Environment variable:**
 
 ```sh
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 bw forks
 ```
+
+Token priority: config file → `GITHUB_TOKEN` env var → gh CLI
 
 ---
 
@@ -156,30 +205,36 @@ bw forks
 
 ### `bw forks` — check if your GitHub forks are behind upstream
 
-Lists all repositories you have forked and compares each one to its upstream default branch. Shows how many commits behind or ahead each fork is.
+Lists all repositories you have forked and compares each one to its upstream default branch. Results are sorted by how many commits behind, worst first.
 
 ```sh
 bw forks
+bw forks --behind-only          # show only stale forks
+bw forks --json                 # machine-readable output
+bw forks --behind-only --json   # combine flags
 ```
 
 **When to use**: After returning from vacation, before syncing forks, or when maintaining many open-source forks simultaneously.
 
 ### `bw branches` — check if branches are behind main
 
-Shows the sync status of every branch in a repository relative to the default branch (usually `main` or `master`).
+Shows the sync status of every branch in a repository relative to the default branch (usually `main` or `master`). Sorted by commits behind, worst first.
 
 ```sh
 bw branches owner/repo
+bw branches owner/repo --behind-only
+bw branches owner/repo --json
 ```
 
 **When to use**: Before a sprint planning session, during code review, or when cleaning up stale branches.
 
 ### `bw prs` — list open pull requests
 
-Lists all open pull requests with author, source → target branch, draft indicator, and number of requested reviewers.
+Lists all open pull requests sorted oldest-first, with author, source → target branch, draft indicator, reviewer count, and open date.
 
 ```sh
 bw prs owner/repo
+bw prs owner/repo --json
 ```
 
 **When to use**: Daily standup, PR review sessions, or release preparation.
@@ -213,6 +268,27 @@ steps:
 
 ---
 
+## Versioning and Releases
+
+branch-watch uses [semantic versioning](https://semver.org). When a `v*` tag is pushed, the release workflow automatically:
+
+1. Builds binaries for all 4 platforms (macOS arm64/x86_64, Linux x86_64/arm64)
+2. Creates a GitHub Release with attached binaries
+3. Publishes to PyPI (`pip install branch-watch`)
+4. Publishes to npm (`npm install -g branch-watch`)
+5. Updates the Homebrew formula with correct SHA256 checksums
+
+To release a new version:
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Everything else is automated.
+
+---
+
 ## FAQ
 
 **How do I check if my GitHub fork is behind upstream?**
@@ -220,6 +296,9 @@ Run `bw forks`. It lists every fork in your GitHub account and shows how many co
 
 **How do I check if a branch is behind main on GitHub?**
 Run `bw branches owner/repo`. It compares every branch in the repository against the default branch and shows behind/ahead commit counts.
+
+**Do I need to run `bw auth` if I already use the GitHub CLI?**
+No. If `gh` is installed and authenticated, branch-watch detects the token automatically. `bw auth` is only needed if you don't use the GitHub CLI.
 
 **Does branch-watch work with private repositories?**
 Yes. Any private repository your GitHub token has `repo` scope access to will work.
@@ -229,6 +308,9 @@ Not yet. Currently supports github.com only.
 
 **What is the difference between branch-watch and `git fetch --prune`?**
 `git fetch` requires a local clone of the repository. branch-watch queries the GitHub API remotely — no local clone needed. It also works across all your repositories at once.
+
+**Can I pipe the output to other tools?**
+Yes. Use `--json` to get structured output and pipe it to `jq`, `grep`, or any other tool.
 
 **Does branch-watch support GitLab or Bitbucket?**
 No. branch-watch is built specifically for the GitHub REST API.
