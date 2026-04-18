@@ -1,0 +1,41 @@
+name: 'branch-watch'
+description: 'Check branch and fork sync status in your CI pipeline'
+author: 'nuri-yoo'
+
+branding:
+  icon: 'git-branch'
+  color: 'blue'
+
+inputs:
+  token:
+    description: 'GitHub token with repo scope'
+    required: false
+    default: ${{ github.token }}
+  command:
+    description: 'Command to run: branches, forks, or prs'
+    required: false
+    default: 'branches'
+  repo:
+    description: 'Target repository in owner/name format (defaults to current repo)'
+    required: false
+    default: ${{ github.repository }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install branch-watch
+      shell: bash
+      run: |
+        version=$(curl -s https://api.github.com/repos/nuri-yoo/branch-watch/releases/latest \
+          | grep '"tag_name"' | cut -d'"' -f4)
+        archive="branch-watch-${version}-x86_64-unknown-linux-gnu.tar.gz"
+        curl -fsSL "https://github.com/nuri-yoo/branch-watch/releases/download/${version}/${archive}" \
+          | tar xz
+        chmod +x bw
+        sudo mv bw /usr/local/bin/bw
+
+    - name: Run branch-watch
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: bw ${{ inputs.command }} ${{ inputs.repo }}

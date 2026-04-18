@@ -52,6 +52,29 @@ Authentication is handled via a [GitHub Personal Access Token (PAT)](https://doc
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+```sh
+brew tap nuri-yoo/tap
+brew install branch-watch
+```
+
+### Pre-built binaries
+
+Download the latest binary for your platform from the [releases page](https://github.com/nuri-yoo/branch-watch/releases):
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `branch-watch-*-aarch64-apple-darwin.tar.gz` |
+| macOS (Intel) | `branch-watch-*-x86_64-apple-darwin.tar.gz` |
+| Linux (x86_64) | `branch-watch-*-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux (ARM64) | `branch-watch-*-aarch64-unknown-linux-gnu.tar.gz` |
+
+```sh
+tar xzf branch-watch-*.tar.gz
+sudo mv bw /usr/local/bin/
+```
+
 ### From source
 
 Requires [Rust](https://rustup.rs) 1.80+.
@@ -63,6 +86,17 @@ cargo install --path .
 ```
 
 The binary is installed as `bw`.
+
+## Use in GitHub Actions
+
+Add branch-watch to your CI workflow to surface stale branches automatically:
+
+```yaml
+- uses: nuri-yoo/branch-watch@v1
+  with:
+    command: branches
+    repo: ${{ github.repository }}
+```
 
 ## Authentication
 
