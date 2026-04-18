@@ -2,11 +2,11 @@ use anyhow::Result;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use octocrab::Octocrab;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::github::{compare_branches, default_branch};
 
-pub async fn run(client: &Octocrab, repo: &str) -> Result<()> {
+pub async fn run(client: &Octocrab, repo: &str, behind_only: bool, output_json: bool) -> Result<()> {
     let (owner, name) = parse_repo(repo)?;
     let base = default_branch(client, owner, name).await?;
 
@@ -31,13 +31,6 @@ pub async fn run(client: &Octocrab, repo: &str) -> Result<()> {
         return Ok(());
     }
 
-    println!(
-        "{} {} (base: {})\n",
-        "→".dimmed(),
-        format!("{owner}/{name}").bold(),
-        base.cyan()
-    );
-
     let pb = ProgressBar::new(branch_names.len() as u64);
     pb.set_style(
         ProgressStyle::with_template("{spinner:.dim} [{pos}/{len}] {msg}")
@@ -53,6 +46,36 @@ pub async fn run(client: &Octocrab, repo: &str) -> Result<()> {
         pb.inc(1);
     }
     pb.finish_and_clear();
+
+    // sort by behind descending, then ahead descending
+    rows.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)));
+
+    if behind_only {
+        rows.retain(|(_, behind, _)| *behind > 0);
+    }
+
+    if rows.is_empty() {
+        println!("All branches are up to date with '{base}'.");
+        return Ok(());
+    }
+
+    if output_json {
+        let out: Vec<Value> = rows
+            .iter()
+            .map(|(branch, behind, ahead)| {
+                json!({ "branch": branch, "base": base, "behind": behind, "ahead": ahead })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        return Ok(());
+    }
+
+    println!(
+        "{} {} (base: {})\n",
+        "→".dimmed(),
+        format!("{owner}/{name}").bold(),
+        base.cyan()
+    );
 
     let name_width = rows.iter().map(|(n, _, _)| n.len()).max().unwrap_or(20);
 

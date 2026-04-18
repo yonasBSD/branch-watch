@@ -2,11 +2,11 @@ use anyhow::Result;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use octocrab::Octocrab;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::github::{compare_branches, upstream_info};
 
-pub async fn run(client: &Octocrab) -> Result<()> {
+pub async fn run(client: &Octocrab, behind_only: bool, output_json: bool) -> Result<()> {
     let repos: Value = client
         .get("/user/repos?type=fork&per_page=100", None::<&()>)
         .await?;
@@ -28,8 +28,6 @@ pub async fn run(client: &Octocrab) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}\n", "Forked repositories".bold());
-
     let pb = ProgressBar::new(fork_list.len() as u64);
     pb.set_style(
         ProgressStyle::with_template("{spinner:.dim} [{pos}/{len}] {msg}")
@@ -40,9 +38,7 @@ pub async fn run(client: &Octocrab) -> Result<()> {
     let mut rows: Vec<(String, String, u64, u64)> = vec![];
     for (owner, name) in &fork_list {
         pb.set_message(format!("{owner}/{name}"));
-        if let Some((up_owner, up_repo, up_branch)) =
-            upstream_info(client, owner, name).await?
-        {
+        if let Some((up_owner, up_repo, up_branch)) = upstream_info(client, owner, name).await? {
             let cmp = compare_branches(
                 client,
                 owner,
@@ -62,6 +58,31 @@ pub async fn run(client: &Octocrab) -> Result<()> {
         pb.inc(1);
     }
     pb.finish_and_clear();
+
+    // sort by behind descending, then ahead descending
+    rows.sort_by(|a, b| b.2.cmp(&a.2).then(b.3.cmp(&a.3)));
+
+    if behind_only {
+        rows.retain(|(_, _, behind, _)| *behind > 0);
+    }
+
+    if rows.is_empty() {
+        println!("All forks are in sync with upstream.");
+        return Ok(());
+    }
+
+    if output_json {
+        let out: Vec<Value> = rows
+            .iter()
+            .map(|(repo, upstream, behind, ahead)| {
+                json!({ "repo": repo, "upstream": upstream, "behind": behind, "ahead": ahead })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        return Ok(());
+    }
+
+    println!("{}\n", "Forked repositories".bold());
 
     let name_width = rows.iter().map(|(n, _, _, _)| n.len()).max().unwrap_or(30);
     let up_width = rows.iter().map(|(_, u, _, _)| u.len()).max().unwrap_or(30);
