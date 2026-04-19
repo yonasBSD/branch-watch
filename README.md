@@ -2,7 +2,7 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-branch--watch-blue?logo=github)](https://github.com/marketplace/actions/branch-watch)
 [![Release](https://img.shields.io/github/v/release/nuri-yoo/branch-watch)](https://github.com/nuri-yoo/branch-watch/releases)
-[![PyPI](https://img.shields.io/pypi/v/branch-watch)](https://pypi.org/project/branch-watch/)
+[![PyPI](https://img.shields.io/pypi/v/branch-watch?cacheSeconds=0)](https://pypi.org/project/branch-watch/)
 [![npm](https://img.shields.io/npm/v/branch-watch)](https://www.npmjs.com/package/branch-watch)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
