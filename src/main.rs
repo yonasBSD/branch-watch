@@ -26,17 +26,23 @@ enum Command {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Show forks for an organization instead of the authenticated user
+        #[arg(long)]
+        org: Option<String>,
     },
-    /// Show branch sync status vs default branch
+    /// Show branch sync status vs default branch (or --base)
     Branches {
         /// Repository in owner/name format
         repo: String,
-        /// Show only branches that are behind the default branch
+        /// Show only branches that are behind the base branch
         #[arg(long)]
         behind_only: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Base branch to compare against (default: repository default branch)
+        #[arg(long)]
+        base: Option<String>,
     },
     /// List open pull requests
     Prs {
@@ -46,6 +52,27 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Manage the repository ignore list
+    Ignore {
+        #[command(subcommand)]
+        action: IgnoreAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum IgnoreAction {
+    /// Add a repository to the ignore list
+    Add {
+        /// Repository in owner/name format
+        repo: String,
+    },
+    /// Remove a repository from the ignore list
+    Remove {
+        /// Repository in owner/name format
+        repo: String,
+    },
+    /// List all ignored repositories
+    List,
 }
 
 #[tokio::main]
@@ -57,21 +84,61 @@ async fn main() -> Result<()> {
             let mut cfg = config::load()?;
             cfg.token = Some(token);
             config::save(&cfg)?;
+            println!("Token saved.");
         }
-        Command::Forks { behind_only, json } => {
+        Command::Forks { behind_only, json, org } => {
             let client = build_client()?;
-            commands::forks::run(&client, behind_only, json).await?;
+            commands::forks::run(&client, behind_only, json, org.as_deref()).await?;
         }
-        Command::Branches { repo, behind_only, json } => {
+        Command::Branches { repo, behind_only, json, base } => {
             let client = build_client()?;
-            commands::branches::run(&client, &repo, behind_only, json).await?;
+            commands::branches::run(&client, &repo, behind_only, json, base.as_deref()).await?;
         }
         Command::Prs { repo, json } => {
             let client = build_client()?;
             commands::prs::run(&client, &repo, json).await?;
         }
+        Command::Ignore { action } => {
+            handle_ignore(action)?;
+        }
     }
 
+    Ok(())
+}
+
+fn handle_ignore(action: IgnoreAction) -> Result<()> {
+    let mut cfg = config::load()?;
+    match action {
+        IgnoreAction::Add { repo } => {
+            if cfg.ignore.iter().any(|r| r == &repo) {
+                println!("'{repo}' is already in the ignore list.");
+            } else {
+                cfg.ignore.push(repo.clone());
+                config::save(&cfg)?;
+                println!("Added '{repo}' to ignore list.");
+            }
+        }
+        IgnoreAction::Remove { repo } => {
+            let before = cfg.ignore.len();
+            cfg.ignore.retain(|r| r != &repo);
+            if cfg.ignore.len() == before {
+                println!("'{repo}' was not found in the ignore list.");
+            } else {
+                config::save(&cfg)?;
+                println!("Removed '{repo}' from ignore list.");
+            }
+        }
+        IgnoreAction::List => {
+            if cfg.ignore.is_empty() {
+                println!("Ignore list is empty.");
+            } else {
+                println!("Ignored repositories:");
+                for r in &cfg.ignore {
+                    println!("  {r}");
+                }
+            }
+        }
+    }
     Ok(())
 }
 
